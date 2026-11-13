@@ -1,0 +1,115 @@
+name: coolify-deploy
+
+# The job runs in the caller, on the caller's minutes. Secrets are read from
+# Infisical with this workflow's GitHub OIDC token. Callers pass the identity
+# id and project slug; they do not pass repository secrets.
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: JSON array of runs-on labels.
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
+      infisical-domain:
+        required: false
+        type: string
+        default: https://secrets.practical.works
+      infisical-identity-id:
+        description: Infisical machine identity id allowed to assume via GitHub OIDC.
+        required: true
+        type: string
+      infisical-project-slug:
+        required: true
+        type: string
+      infisical-env-slug:
+        required: false
+        type: string
+        default: prod
+      infisical-secret-path:
+        required: false
+        type: string
+        default: /
+      oidc-audience:
+        required: false
+        type: string
+        default: ""
+      webhook-secret-name:
+        description: Shell-safe name of the secret that holds the Coolify webhook URL.
+        required: false
+        type: string
+        default: COOLIFY_WEBHOOK_URL
+      token-secret-name:
+        description: >-
+          Shell-safe name of the Coolify API token secret. Empty sends the
+          webhook with no bearer token.
+        required: false
+        type: string
+        default: COOLIFY_API_TOKEN
+      timeout-minutes:
+        required: false
+        type: number
+        default: 10
+    outputs:
+      deployment-uuid:
+        description: Coolify deployment uuid from the webhook response.
+        value: ${{ jobs.deploy.outputs.deployment-uuid }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    outputs:
+      deployment-uuid: ${{ steps.webhook.outputs.deployment-uuid }}
+    steps:
+      - uses: Infisical/secrets-action@v1.0.18
+        with:
+          method: oidc
+          identity-id: ${{ inputs.infisical-identity-id }}
+          oidc-audience: ${{ inputs.oidc-audience }}
+          project-slug: ${{ inputs.infisical-project-slug }}
+          env-slug: ${{ inputs.infisical-env-slug }}
+          domain: ${{ inputs.infisical-domain }}
+          secret-path: ${{ inputs.infisical-secret-path }}
+          export-type: env
+
+      - id: webhook
+        name: Post the Coolify deploy webhook
+        env:
+          WEBHOOK_SECRET_NAME: ${{ inputs.webhook-secret-name }}
+          TOKEN_SECRET_NAME: ${{ inputs.token-secret-name }}
+        run: |
+          set -euo pipefail
+          url="$(printenv "${WEBHOOK_SECRET_NAME}" || true)"
+          token=""
+          if [ -n "${TOKEN_SECRET_NAME}" ]; then
+            token="$(printenv "${TOKEN_SECRET_NAME}" || true)"
+          fi
+          if [ -z "${url}" ]; then
+            echo "::error::Infisical did not export ${WEBHOOK_SECRET_NAME}"
+            exit 1
+          fi
+          body="${RUNNER_TEMP}/coolify-webhook.json"
+          if [ -n "${token}" ]; then
+            curl --fail-with-body -sS -X POST -H "Authorization: Bearer ${token}" -o "${body}" "${url}"
+          else
+            curl --fail-with-body -sS -X POST -o "${body}" "${url}"
+          fi
+          if ! uuid="$(node -e '
+            const fs = require("node:fs");
+            let parsed;
+            try { parsed = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+            catch { process.exit(2); }
+            const id = parsed.deployments?.[0]?.deployment_uuid ?? parsed.deployment_uuid ?? "";
+            if (!id) process.exit(2);
+            process.stdout.write(String(id));
+          ' "${body}")"; then
+            echo "::error::Coolify response missing deployment_uuid"
+            exit 1
+          fi
+          echo "deployment-uuid=${uuid}" >> "$GITHUB_OUTPUT"
+          echo "deployment ${uuid}"

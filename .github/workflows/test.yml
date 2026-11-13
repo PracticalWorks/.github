@@ -1,0 +1,78 @@
+name: test
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: JSON array of runs-on labels, for example ["ubuntu-latest"].
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
+      pnpm-version:
+        required: false
+        type: string
+        default: "10.14.0"
+      node-version:
+        required: false
+        type: string
+        default: "22"
+      node-architecture:
+        required: false
+        type: string
+        default: ""
+      registry-url:
+        required: false
+        type: string
+        default: ""
+      github-packages:
+        required: false
+        type: boolean
+        default: false
+      lint:
+        description: Shell for lint. Empty skips it.
+        required: false
+        type: string
+        default: "pnpm lint"
+      test:
+        description: Shell for tests. Empty skips it.
+        required: false
+        type: string
+        default: "pnpm test"
+      run:
+        description: Extra shell after lint and test. Empty skips it.
+        required: false
+        type: string
+        default: ""
+      timeout-minutes:
+        required: false
+        type: number
+        default: 30
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PracticalWorks/.github/.github/actions/setup@v1
+        with:
+          pnpm-version: ${{ inputs.pnpm-version }}
+          node-version: ${{ inputs.node-version }}
+          node-architecture: ${{ inputs.node-architecture }}
+          registry-url: ${{ inputs.registry-url }}
+          github-packages: ${{ inputs.github-packages && 'true' || 'false' }}
+      - if: inputs.lint != ''
+        name: lint
+        run: ${{ inputs.lint }}
+      - if: inputs.test != ''
+        name: test
+        run: ${{ inputs.test }}
+      - if: inputs.run != ''
+        name: run
+        run: ${{ inputs.run }}
