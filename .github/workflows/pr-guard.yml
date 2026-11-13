@@ -1,0 +1,54 @@
+name: pr-guard
+
+on:
+  workflow_call:
+    inputs:
+      require-verification:
+        description: Fail unless the body has a ## Verification heading.
+        required: false
+        type: boolean
+        default: true
+      require-refs:
+        description: Fail unless the body has a Refs line naming an uppercase KEY-123.
+        required: false
+        type: boolean
+        default: true
+      scan-secrets:
+        description: Fail if the pull request diff adds a high-confidence secret shape.
+        required: false
+        type: boolean
+        default: false
+      runner:
+        description: JSON array of runs-on labels.
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        if: inputs.scan-secrets
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: PracticalWorks/.github
+          ref: ${{ github.repository == 'PracticalWorks/.github' && github.sha || 'v1' }}
+          path: .pw-shared
+
+      - name: PR body and guardrails
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          REQUIRE_VERIFICATION: ${{ inputs.require-verification }}
+          REQUIRE_REFS: ${{ inputs.require-refs }}
+          SCAN_SECRETS: ${{ inputs.scan-secrets }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: node .pw-shared/scripts/pr-guard.mjs
