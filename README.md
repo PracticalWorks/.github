@@ -22,7 +22,19 @@ jobs:
 | `coolify-deploy.yml` | read secrets from Infisical with GitHub OIDC, then POST a Coolify webhook |
 | `pr-guard.yml` | require a `## Verification` heading and a `Refs:` line; optional secret-shape scan |
 
-`test.yml` and `image.yml` call `.github/actions/setup` themselves. `setup.yml` is the install-only job. A following job cannot see the install from `setup.yml`.
+`test.yml` and `setup.yml` call `.github/actions/setup` themselves; `image.yml` installs nothing outside the Dockerfile. A following job cannot see the install from `setup.yml`.
+
+## Caller permissions
+
+A called workflow can only lower the token permissions its caller grants, never raise them, and Practical Works repositories default to a read-only token. A caller job that needs more grants it:
+
+| Workflow | Caller job needs |
+| --- | --- |
+| `image.yml` | `permissions: { contents: read, packages: write }` |
+| `coolify-deploy.yml` | `permissions: { contents: read, id-token: write }` |
+| `setup.yml`, `test.yml`, `pr-guard.yml` | nothing beyond the read-only default |
+
+Without it the workflow run fails before any step starts, because the nested job asks for a permission the caller never granted.
 
 On macOS the setup action selects arm64 Node, so an Apple Silicon runner does not install an x64 build under Rosetta. Pass `node-architecture` to override it.
 
