@@ -28,6 +28,13 @@ inputs:
       job needs packages:read.
     required: false
     default: "false"
+  cache:
+    description: >-
+      When true, actions/setup-node caches the pnpm store. A caller whose
+      runners keep the store between jobs turns it off to skip the cache
+      save and restore.
+    required: false
+    default: "true"
   install:
     description: Run pnpm install --frozen-lockfile after setup.
     required: false
@@ -44,7 +51,7 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
         architecture: ${{ inputs.node-architecture != '' && inputs.node-architecture || (runner.os == 'macOS' && 'arm64' || '') }}
-        cache: pnpm
+        cache: ${{ inputs.cache == 'true' && 'pnpm' || '' }}
         registry-url: ${{ inputs.registry-url }}
 
     - if: inputs.github-packages == 'true'
