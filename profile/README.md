@@ -13,6 +13,7 @@ We run our own company on the same stack we build for others, and we open-source
 | [**guardrails**](https://www.npmjs.com/package/@practicalworks/guardrails) | Shared git hooks as one dev dependency: a ticket reference on every commit, your own hooks kept, and a guard that stops an AI coding agent from printing your secrets. npm: [`@practicalworks/guardrails`](https://www.npmjs.com/package/@practicalworks/guardrails) |
 | [**inngest-vps**](https://github.com/practical-works-acropolis/inngest-vps) | Self-hosted [Inngest](https://www.inngest.com) in one command on a small VPS: Docker Compose (Inngest, Postgres, Redis, Caddy TLS) plus Terraform, about $12 a month |
 | [**claude-code-secret-guard**](https://github.com/practical-works-acropolis/claude-code-secret-guard) | A Claude Code hook that stops the agent from printing your secret values into the transcript |
+| [**turnwrk/shared**](https://github.com/TurnWrk/shared) | One contract for a suite of field-service apps: canonical types, roles, Firestore collection paths and rules, and the money model, vendored into each app so they never drift apart |
 
 Every npm package is published from CI with [provenance](https://docs.npmjs.com/generating-provenance-statements), so you can check that what you install was built from the code you can read here.
 
