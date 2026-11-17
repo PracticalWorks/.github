@@ -1,29 +1,25 @@
 # Practical Works
 
-**Senior software delivery for small and mid-sized businesses.** We embed with your team, ship production systems, and leave behind code your next engineer will thank you for.
+**A small software shop in Tampa Bay. We build, deploy and run software for teams who need it in production.** We take apps that were prototyped fast (or vibe-coded) and make them production-grade, run self-hosted business systems, and put AI agents to work inside real teams.
 
-## What we do
+We run our own company on the same stack we build for others, and we open-source the pieces we depend on every day. Everything below is MIT and maintained because we use it.
 
-- **Embedded engineering engagements**: a senior engineer inside your team, shipping from week one
-- **Fractional CTO**: architecture, build-vs-buy calls, and delivery accountability without the full-time hire
+## Open source
 
-## How we work
+| Project | What it's for |
+|---|---|
+| [**rc-bridge**](https://github.com/PracticalWorks/rc-bridge) | Put an AI agent in [Rocket.Chat](https://www.rocket.chat): one conversation per thread, reactions as receipts, images and files, streaming. Plus a typed Rocket.Chat REST client. npm: [`@practicalworks/rc-bridge`](https://www.npmjs.com/package/@practicalworks/rc-bridge), [`@practicalworks/rc-client`](https://www.npmjs.com/package/@practicalworks/rc-client) |
+| [**crm**](https://github.com/PracticalWorks/crm) | A typed client for the [Twenty](https://twenty.com) CRM's REST API, the lead record as a Twenty App, and typed Inngest events when a lead moves. npm: [`@practicalworks/crm`](https://www.npmjs.com/package/@practicalworks/crm) |
+| [**guardrails**](https://www.npmjs.com/package/@practicalworks/guardrails) | Shared git hooks as one dev dependency: a ticket reference on every commit, your own hooks kept, and a guard that stops an AI coding agent from printing your secrets. npm: [`@practicalworks/guardrails`](https://www.npmjs.com/package/@practicalworks/guardrails) |
+| [**inngest-vps**](https://github.com/practical-works-acropolis/inngest-vps) | Self-hosted [Inngest](https://www.inngest.com) in one command on a small VPS: Docker Compose (Inngest, Postgres, Redis, Caddy TLS) plus Terraform, about $12 a month |
+| [**claude-code-secret-guard**](https://github.com/practical-works-acropolis/claude-code-secret-guard) | A Claude Code hook that stops the agent from printing your secret values into the transcript |
 
-We run our own production infrastructure and open-source the parts worth sharing. If we recommend it to a client, we run it ourselves first.
+Every npm package is published from CI with [provenance](https://docs.npmjs.com/generating-provenance-statements), so you can check that what you install was built from the code you can read here.
 
-| Project | What it is |
-|---------|------------|
-| [inngest-vps](https://github.com/PracticalWorks/inngest-vps) | One-command self-hosted Inngest on AWS Lightsail: Docker Compose + Terraform, ~$12/mo |
+Issues, questions and pull requests are welcome on any of them.
 
-More coming: our Rocket.Chat agent-fleet setup, Ghost deployment tooling, and the patterns behind our AI content engine.
+## Work with us
 
-## Where we write
-
-Technical writing at [blog.practical.works](https://blog.practical.works). Every code snippet in our articles is verified against the source repo it cites.
-
-## Talk to us
-
-- Site: [practical.works](https://practical.works)
-- Book a call: [practical.works/call](https://practical.works/call)
+If you need a hand shipping an app, rescuing one, or putting an agent to work, we take on projects: [practical.works](https://practical.works) · [book a call](https://practical.works/call) · hello@practical.works
 
 Founded by [Julissa Cotillo](https://github.com/jcotillo) and [Alan Campbell](https://github.com/Echobob).
