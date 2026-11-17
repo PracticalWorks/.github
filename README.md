@@ -65,7 +65,7 @@ The setup action caches the pnpm store through `actions/setup-node` unless the c
 
 On macOS the setup action selects arm64 Node, so an Apple Silicon runner does not install an x64 build under Rosetta. Pass `node-architecture` to override it.
 
-`runner` is a JSON array of labels, for example `'["ubuntu-latest"]'` or `'["self-hosted","mini"]'`.
+`runner` is a JSON array of labels, for example `'["ubuntu-latest"]'` or `'["self-hosted","linux"]'`.
 
 ## Secrets
 
@@ -124,7 +124,7 @@ Every failure is printed to the log and also emitted as an `::error::` workflow 
 
 ## Used by
 
-[PracticalWorks/frontdesk](https://github.com/PracticalWorks/frontdesk), [PracticalWorks/crm](https://github.com/PracticalWorks/crm), [PracticalWorks/guardrails](https://github.com/PracticalWorks/guardrails), [PracticalWorks/rc-bridge](https://github.com/PracticalWorks/rc-bridge), [practical-works-acropolis/practical-works-factory](https://github.com/practical-works-acropolis/practical-works-factory).
+Our public packages build and release with these workflows: [PracticalWorks/crm](https://github.com/PracticalWorks/crm), [PracticalWorks/guardrails](https://github.com/PracticalWorks/guardrails) and [PracticalWorks/rc-bridge](https://github.com/PracticalWorks/rc-bridge).
 
 ## License
 
