@@ -173,3 +173,37 @@ test("the poll budget leaves a minute of the job timeout", () => {
   assert.equal(budgetMs(1), 60_000);
   assert.equal(budgetMs(""), 9 * 60_000);
 });
+
+test("wait false posts the webhook, outputs the uuid and never polls (FACT-2001)", async () => {
+  const { fetchImpl, calls } = fakeFetch({
+    [POST]: [respond(200, { deployments: [{ deployment_uuid: "dep-1" }] })],
+  });
+  const outputs = [];
+  const uuid = await deployAndProve({
+    webhookUrl: WEBHOOK,
+    token: TOKEN,
+    wait: false,
+    timeoutMs: 600_000,
+    setOutput: (u) => outputs.push(u),
+    fetchImpl,
+    ...clock(),
+    log: () => {},
+  });
+  assert.equal(uuid, "dep-1");
+  assert.deepEqual(outputs, ["dep-1"]);
+  assert.deepEqual(calls.map((c) => c.key), [POST]);
+});
+
+test("wait false refuses a health URL it would never poll", async () => {
+  await assert.rejects(
+    deployAndProve({
+      webhookUrl: WEBHOOK,
+      token: TOKEN,
+      wait: false,
+      healthUrl: "https://app.example.test/health",
+      expectedVersion: "abc",
+      timeoutMs: 1,
+    }),
+    /health-url needs wait/,
+  );
+});

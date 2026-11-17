@@ -144,6 +144,7 @@ export async function deployAndProve({
   token,
   healthUrl = "",
   expectedVersion = "",
+  wait = true,
   timeoutMs,
   setOutput = () => {},
   ...io
@@ -153,11 +154,19 @@ export async function deployAndProve({
   if (Boolean(healthUrl) !== Boolean(expectedVersion)) {
     throw new Error("health-url and expected-version go together: pass both or neither");
   }
+  if (!wait && healthUrl) {
+    throw new Error("health-url needs wait: a deploy that does not wait never polls it");
+  }
   const now = io.now ?? Date.now;
   const deadline = now() + timeoutMs;
   const uuid = await triggerDeploy({ webhookUrl, token, fetchImpl: io.fetchImpl });
   setOutput(uuid);
   (io.log ?? console.log)(`Coolify deployment ${uuid} queued`);
+  if (!wait) {
+    // The caller pays per minute of runner; the wait is watched off the runner (FACT-2001).
+    (io.log ?? console.log)(`not waiting: deployment ${uuid} is confirmed off the runner`);
+    return uuid;
+  }
   await waitForDeployment({ ...io, base: coolifyBase(webhookUrl), token, uuid, deadline });
   if (healthUrl) await waitForVersion({ ...io, healthUrl, expectedVersion, deadline });
   return uuid;
@@ -185,6 +194,7 @@ async function main() {
       token,
       healthUrl: env.HEALTH_URL ?? "",
       expectedVersion: env.EXPECTED_VERSION ?? "",
+      wait: env.WAIT !== "false",
       timeoutMs: budgetMs(env.TIMEOUT_MINUTES),
       setOutput: (uuid) => {
         if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, `deployment-uuid=${uuid}\n`);
