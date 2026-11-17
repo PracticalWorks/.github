@@ -7,7 +7,7 @@ Consumers pin a tag:
 ```yaml
 jobs:
   test:
-    uses: PracticalWorks/.github/.github/workflows/test.yml@v1.2.0
+    uses: PracticalWorks/.github/.github/workflows/test.yml@v1.3.0
 ```
 
 ## Tags
@@ -17,6 +17,7 @@ jobs:
 | `v1` | the first release | the five workflows and the setup action |
 | `v1.1.0` | the merge of the v1.1.0 pull request | `pr-guard.yml` sets up Node and runs its own commit's script; failures are also `::error::` annotations; `coolify-deploy.yml` waits for Coolify's real outcome and can prove a version is live |
 | `v1.2.0` | the merge of the v1.2.0 pull request | `coolify-deploy.yml` takes `environment` (and `deployment`), so an Infisical identity can trust one GitHub environment of the caller; the setup action takes `cache` |
+| `v1.3.0` | the merge of the v1.3.0 pull request | `coolify-deploy.yml` takes `wait` (false: post the webhook and exit, so the caller is billed seconds, not the wait) and `pre-deploy-run` (a shell step in the caller's checkout before the webhook, e.g. an env sync, instead of a separate job) |
 
 A release is a new tag on a commit of `main`. Existing tags are never moved or deleted, so a caller sees a change only when it bumps its pin. Do not pin `@main`.
 
@@ -74,13 +75,15 @@ The job goes green only when the deploy is live, not when Coolify accepts the we
 | `oidc-audience` | empty | `aud` of the GitHub OIDC token. Pass the audience the identity binds; the Infisical action's default is not ours |
 | `environment` | empty | GitHub environment the deploy job runs in. See below |
 | `deployment` | `true` | with `environment`, whether GitHub records a Deployment for the job. `false` for a caller that writes its own records |
+| `wait` | `true` | `false` posts the webhook, outputs `deployment-uuid` and exits. Something off the runner must then watch the deployment; `health-url` is refused with it |
+| `pre-deploy-run` | empty | shell run in a checkout of the caller's commit, after the Infisical secrets are exported and Node 22 is set up, before the webhook |
 | `token-secret-name` | `COOLIFY_API_TOKEN` | the token now also authorizes the status polls, so it is required. It needs deploy and read scope |
 
 ```yaml
 jobs:
   deploy:
     permissions: { contents: read, id-token: write }
-    uses: PracticalWorks/.github/.github/workflows/coolify-deploy.yml@v1.2.0
+    uses: PracticalWorks/.github/.github/workflows/coolify-deploy.yml@v1.3.0
     with:
       infisical-identity-id: <identity id>
       infisical-project-slug: <project slug>

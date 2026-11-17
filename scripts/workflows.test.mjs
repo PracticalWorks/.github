@@ -49,3 +49,18 @@ test('each script fallback ref is the newest release in the README', () => {
     for (const ref of refs) assert.equal(ref, newest, `${name} falls back to ${newest}`);
   }
 });
+
+test('coolify-deploy can skip the wait and run a pre-deploy step in the caller checkout (FACT-2001)', () => {
+  const wait = input(deploy, 'wait', 6);
+  assert.match(wait, /type: boolean/);
+  assert.match(wait, /default: true/);
+  assert.match(input(deploy, 'pre-deploy-run', 6), /default: ""/);
+  assert.match(deploy, /WAIT: \$\{\{ inputs\.wait \}\}/);
+  // The caller checkout comes before the shared one, which it would otherwise clean away.
+  const caller = deploy.indexOf("- if: inputs.pre-deploy-run != ''\n        uses: actions/checkout@v4");
+  const shared = deploy.indexOf('path: .pw-shared');
+  assert.ok(caller >= 0 && caller < shared, 'caller checkout precedes the shared checkout');
+  // The pre-deploy step runs after the secrets and node, before the webhook.
+  const pre = deploy.indexOf('name: Pre-deploy');
+  assert.ok(pre > deploy.indexOf('Infisical/secrets-action') && pre > deploy.indexOf('actions/setup-node') && pre < deploy.indexOf('id: webhook'));
+});

@@ -89,6 +89,24 @@ on:
         required: false
         type: string
         default: ""
+      wait:
+        description: >-
+          Whether the job waits for Coolify's outcome (and health-url). false
+          posts the webhook, outputs the deployment uuid and exits, so the
+          caller pays for seconds, not for the wait; something off the runner
+          must then watch the deployment (FACT-2001).
+        required: false
+        type: boolean
+        default: true
+      pre-deploy-run:
+        description: >-
+          Optional shell run in a checkout of the caller's commit after the
+          Infisical secrets are exported and Node is set up, before the
+          webhook. Folds a step such as an env sync into this job instead of
+          a separate job with its own one-minute minimum (FACT-2001).
+        required: false
+        type: string
+        default: ""
     outputs:
       deployment-uuid:
         description: Coolify deployment uuid from the webhook response.
@@ -122,19 +140,30 @@ jobs:
           secret-path: ${{ inputs.infisical-secret-path }}
           export-type: env
 
+      # The caller's commit, for pre-deploy-run. Before the shared checkout,
+      # which it would otherwise clean away.
+      - if: inputs.pre-deploy-run != ''
+        uses: actions/checkout@v4
+
       # The deploy script comes from the same commit as this workflow file.
       # The fallback is only for a runner that leaves job.workflow_sha empty;
       # bump it with each release tag.
       - uses: actions/checkout@v4
         with:
           repository: ${{ job.workflow_repository || 'PracticalWorks/.github' }}
-          ref: ${{ job.workflow_sha || 'v1.2.0' }}
+          ref: ${{ job.workflow_sha || 'v1.3.0' }}
           path: .pw-shared
 
       # Self-hosted runners (Proxmox ephemeral) ship without node.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - if: inputs.pre-deploy-run != ''
+        name: Pre-deploy
+        env:
+          PRE_DEPLOY_RUN: ${{ inputs.pre-deploy-run }}
+        run: bash -euo pipefail -c "$PRE_DEPLOY_RUN"
 
       - id: webhook
         name: Deploy on Coolify and prove it is live
@@ -144,6 +173,7 @@ jobs:
           HEALTH_URL: ${{ inputs.health-url }}
           EXPECTED_VERSION: ${{ inputs.expected-version }}
           TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+          WAIT: ${{ inputs.wait }}
         run: |
           set -euo pipefail
           # Mask both values before anything can print them. printenv does

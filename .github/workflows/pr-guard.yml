@@ -45,12 +45,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${{ job.workflow_repository || 'PracticalWorks/.github' }}
-          ref: ${{ job.workflow_sha || 'v1.2.0' }}
+          ref: ${{ job.workflow_sha || 'v1.3.0' }}
           path: .pw-shared
 
       - name: Warn when the runner gave no workflow sha
         if: job.workflow_sha == ''
-        run: echo "::warning::job.workflow_sha is empty on this runner, so pr-guard ran the v1.2.0 script"
+        run: echo "::warning::job.workflow_sha is empty on this runner, so pr-guard ran the v1.3.0 script"
 
       # Self-hosted runners (Proxmox ephemeral) ship without node.
       - uses: actions/setup-node@v4
