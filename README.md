@@ -1,14 +1,28 @@
 # Shared workflows
 
-Reusable workflows for Practical Works repositories. A job that calls one runs in the caller, so its minutes and logs stay on the caller. Private source is not checked out into a run of this repository.
+**Reusable GitHub Actions workflows for pnpm repositories: test, build a GHCR image, deploy to Coolify and wait until it is live, and guard a pull request body.** Call one with a single `uses:` line and pin a tag; a fix reaches every caller through a pin bump instead of one copied YAML file per repository.
 
-Consumers pin a tag:
+[![ci](https://github.com/PracticalWorks/.github/actions/workflows/ci.yml/badge.svg)](https://github.com/PracticalWorks/.github/actions/workflows/ci.yml)
+[![MIT licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+
+This repository also holds the Practical Works organization profile (`profile/README.md`). The workflows are what you can reuse. A job that calls one runs in the caller, so its minutes and logs stay on the caller. Private source is not checked out into a run of this repository.
+
+## Quick start
+
+In a pnpm repository with `lint` and `test` scripts, add `.github/workflows/ci.yml`:
 
 ```yaml
+name: ci
+on: [push, pull_request]
+
 jobs:
   test:
     uses: PracticalWorks/.github/.github/workflows/test.yml@v1.3.0
 ```
+
+That checks out the repository, installs pnpm and Node 22, runs `pnpm install --frozen-lockfile`, then `pnpm lint` and `pnpm test`. Override any of them with `with:` (for example `test: pnpm vitest run`, or `runner: '["self-hosted"]'`). The sections below cover the other workflows and their inputs.
+
+Always pin a tag, never `@main`. The tags so far:
 
 ## Tags
 
@@ -21,7 +35,7 @@ jobs:
 
 A release is a new tag on a commit of `main`. Existing tags are never moved or deleted, so a caller sees a change only when it bumps its pin. Do not pin `@main`.
 
-`pr-guard.yml` and `coolify-deploy.yml` check out this repository's scripts at `job.workflow_sha`, the commit of the workflow file the caller invoked, so a caller pinned to `v1.2.0` runs `v1.2.0`'s scripts. If a runner leaves `job.workflow_sha` empty, they fall back to a tag written into the workflow file and say so with a warning. A release bumps that fallback to its own tag.
+`pr-guard.yml` and `coolify-deploy.yml` check out this repository's scripts at `job.workflow_sha`, the commit of the workflow file the caller invoked, so a caller pinned to `v1.3.0` runs `v1.3.0`'s scripts. If a runner leaves `job.workflow_sha` empty, they fall back to a tag written into the workflow file and say so with a warning. A release bumps that fallback to its own tag.
 
 ## Workflows
 
@@ -51,7 +65,7 @@ The setup action caches the pnpm store through `actions/setup-node` unless the c
 
 On macOS the setup action selects arm64 Node, so an Apple Silicon runner does not install an x64 build under Rosetta. Pass `node-architecture` to override it.
 
-`runner` is a JSON array of labels, for example `'["ubuntu-latest"]'` or `'["self-hosted","mini"]'`.
+`runner` is a JSON array of labels, for example `'["ubuntu-latest"]'` or `'["self-hosted","linux"]'`.
 
 ## Secrets
 
@@ -107,3 +121,11 @@ The webhook URL and the token are masked with `::add-mask::` before anything run
 `pr-guard.yml` fails a pull request whose body lacks `## Verification`, or a line `Refs: KEY-123` with an uppercase key, unless the caller turns that check off. `scan-secrets: true` fails the job when an added diff line matches a high-confidence credential shape. The log names the pattern, not the line.
 
 Every failure is printed to the log and also emitted as an `::error::` workflow command, so the reason shows as an annotation on the check even when a self-hosted runner loses the job log. The workflow sets up Node 22 itself, so it runs on self-hosted runners that ship without Node.
+
+## Used by
+
+Our public packages build and release with these workflows: [PracticalWorks/crm](https://github.com/PracticalWorks/crm), [PracticalWorks/guardrails](https://github.com/PracticalWorks/guardrails) and [PracticalWorks/rc-bridge](https://github.com/PracticalWorks/rc-bridge).
+
+## License
+
+MIT, see [LICENSE](LICENSE). Made by [Practical Works](https://practical.works), a small software shop in Tampa Bay; questions and bug reports are welcome in [issues](https://github.com/PracticalWorks/.github/issues).
