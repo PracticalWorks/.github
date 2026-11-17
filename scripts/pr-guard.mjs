@@ -13,6 +13,31 @@ const SECRET_RULES = [
   { name: "slack-token", re: /\bxox[baprs]-[A-Za-z0-9-]{10,}/ },
 ];
 
+/**
+ * Escapes a message for a GitHub workflow command, as GitHub's toolkit does:
+ * % first, then CR and LF, so a multi-line message stays one annotation.
+ */
+export function escapeCommandData(message) {
+  return String(message)
+    .replace(/%/g, "%25")
+    .replace(/\r/g, "%0D")
+    .replace(/\n/g, "%0A");
+}
+
+export function errorCommand(message) {
+  return `::error::${escapeCommandData(message)}`;
+}
+
+/**
+ * Prints a failure to stderr for the job log, and again as an `::error::`
+ * command so it also lands as a check annotation. The annotation survives
+ * when a self-hosted runner loses the job log (FACT-1971).
+ */
+export function reportFailure(message, write = { err: console.error, out: console.log }) {
+  write.err(message);
+  write.out(errorCommand(message));
+}
+
 export function missingBody(body, options) {
   const text = String(body ?? "");
   const missing = [];
@@ -46,7 +71,7 @@ function scanSecrets() {
   const base = process.env.BASE_SHA ?? "";
   const head = process.env.HEAD_SHA ?? "";
   if (!base || !head) {
-    console.error("guardrails: secret scan needs BASE_SHA and HEAD_SHA");
+    reportFailure("guardrails: secret scan needs BASE_SHA and HEAD_SHA");
     return false;
   }
   const diff = execFileSync("git", ["diff", "--unified=0", base, head], {
@@ -54,7 +79,7 @@ function scanSecrets() {
   });
   const hits = secretFindings(diff);
   if (hits.length > 0) {
-    console.error(`guardrails: secret-shaped text in the diff (${hits.join(", ")})`);
+    reportFailure(`guardrails: secret-shaped text in the diff (${hits.join(", ")})`);
     return false;
   }
   return true;
@@ -66,7 +91,7 @@ function main() {
     refs: flag("REQUIRE_REFS", true),
   });
   if (missing.length > 0) {
-    console.error(`pr body: missing ${missing.join(" and ")}`);
+    reportFailure(`pr body: missing ${missing.join(" and ")}`);
     process.exitCode = 1;
     return;
   }

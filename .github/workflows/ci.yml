@@ -13,8 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: pr-guard unit tests
-        run: node --test scripts/pr-guard.test.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: script unit tests
+        run: node --test scripts/*.test.mjs
 
   guard:
     if: github.event_name == 'pull_request'

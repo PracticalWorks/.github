@@ -37,11 +37,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The script comes from the same commit as this workflow file, so a caller
+      # pinned to a tag runs that tag's script. job.workflow_sha names the commit
+      # of the file that defines this job (the reusable workflow, not the caller).
+      # The fallback is only for a runner that leaves it empty; bump it with
+      # each release tag.
       - uses: actions/checkout@v4
         with:
-          repository: PracticalWorks/.github
-          ref: ${{ github.repository == 'PracticalWorks/.github' && github.sha || 'v1' }}
+          repository: ${{ job.workflow_repository || 'PracticalWorks/.github' }}
+          ref: ${{ job.workflow_sha || 'v1.1.0' }}
           path: .pw-shared
+
+      - name: Warn when the runner gave no workflow sha
+        if: job.workflow_sha == ''
+        run: echo "::warning::job.workflow_sha is empty on this runner, so pr-guard ran the v1.1.0 script"
+
+      # Self-hosted runners (Proxmox ephemeral) ship without node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: PR body and guardrails
         env:
