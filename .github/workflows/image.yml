@@ -48,6 +48,15 @@ on:
         required: false
         type: string
         default: ""
+      build-args:
+        description: >-
+          Docker build-args, one KEY=value per line, for example BUILD_SHA set
+          to the caller's github.sha so the image knows the commit it was
+          built from. Build-args are visible in image history, so never pass a
+          credential here.
+        required: false
+        type: string
+        default: ""
       timeout-minutes:
         required: false
         type: number
@@ -96,6 +105,7 @@ jobs:
           push: ${{ inputs.push }}
           platforms: ${{ inputs.platforms }}
           tags: ${{ steps.tags.outputs.tags }}
+          build-args: ${{ inputs.build-args }}
           secrets: ${{ inputs.npmrc && format('npmrc=//npm.pkg.github.com/:_authToken={0}', github.token) || '' }}
           cache-from: ${{ inputs.cache == 'inline' && format('type=registry,ref={0}:latest', inputs.image) || (inputs.cache == 'gha' && 'type=gha' || '') }}
           cache-to: ${{ inputs.cache == 'inline' && 'type=inline' || (inputs.cache == 'gha' && 'type=gha,mode=max' || '') }}

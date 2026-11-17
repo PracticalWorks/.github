@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const deploy = read('.github/workflows/coolify-deploy.yml');
 const guard = read('.github/workflows/pr-guard.yml');
+const image = read('.github/workflows/image.yml');
 const setup = read('.github/actions/setup/action.yml');
 const readme = read('README.md');
 
@@ -63,4 +64,13 @@ test('coolify-deploy can skip the wait and run a pre-deploy step in the caller c
   // The pre-deploy step runs after the secrets and node, before the webhook.
   const pre = deploy.indexOf('name: Pre-deploy');
   assert.ok(pre > deploy.indexOf('Infisical/secrets-action') && pre > deploy.indexOf('actions/setup-node') && pre < deploy.indexOf('id: webhook'));
+});
+
+test('image takes optional build-args and hands them to the build (FACT-2010)', () => {
+  const block = input(image, 'build-args', 6);
+  assert.match(block, /required: false/);
+  assert.match(block, /type: string/);
+  assert.match(block, /default: ""/);
+  const build = image.slice(image.indexOf('uses: docker/build-push-action@'));
+  assert.match(build, /\n {10}build-args: \$\{\{ inputs\.build-args \}\}\n/);
 });
