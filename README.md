@@ -7,7 +7,7 @@ Consumers pin a tag:
 ```yaml
 jobs:
   test:
-    uses: PracticalWorks/.github/.github/workflows/test.yml@v1.1.0
+    uses: PracticalWorks/.github/.github/workflows/test.yml@v1.2.0
 ```
 
 ## Tags
@@ -16,10 +16,11 @@ jobs:
 | --- | --- | --- |
 | `v1` | the first release | the five workflows and the setup action |
 | `v1.1.0` | the merge of the v1.1.0 pull request | `pr-guard.yml` sets up Node and runs its own commit's script; failures are also `::error::` annotations; `coolify-deploy.yml` waits for Coolify's real outcome and can prove a version is live |
+| `v1.2.0` | the merge of the v1.2.0 pull request | `coolify-deploy.yml` takes `environment` (and `deployment`), so an Infisical identity can trust one GitHub environment of the caller; the setup action takes `cache` |
 
 A release is a new tag on a commit of `main`. Existing tags are never moved or deleted, so a caller sees a change only when it bumps its pin. Do not pin `@main`.
 
-`pr-guard.yml` and `coolify-deploy.yml` check out this repository's scripts at `job.workflow_sha`, the commit of the workflow file the caller invoked, so a caller pinned to `v1.1.0` runs `v1.1.0`'s scripts. If a runner leaves `job.workflow_sha` empty, they fall back to a tag written into the workflow file and say so with a warning. A release bumps that fallback to its own tag.
+`pr-guard.yml` and `coolify-deploy.yml` check out this repository's scripts at `job.workflow_sha`, the commit of the workflow file the caller invoked, so a caller pinned to `v1.2.0` runs `v1.2.0`'s scripts. If a runner leaves `job.workflow_sha` empty, they fall back to a tag written into the workflow file and say so with a warning. A release bumps that fallback to its own tag.
 
 ## Workflows
 
@@ -45,6 +46,8 @@ A called workflow can only lower the token permissions its caller grants, never 
 
 Without it the workflow run fails before any step starts, because the nested job asks for a permission the caller never granted.
 
+The setup action caches the pnpm store through `actions/setup-node` unless the caller passes `cache: false`, for example on runners that keep the store between jobs.
+
 On macOS the setup action selects arm64 Node, so an Apple Silicon runner does not install an x64 build under Rosetta. Pass `node-architecture` to override it.
 
 `runner` is a JSON array of labels, for example `'["ubuntu-latest"]'` or `'["self-hosted","mini"]'`.
@@ -68,19 +71,31 @@ The job goes green only when the deploy is live, not when Coolify accepts the we
 | `health-url` | empty | URL to poll after Coolify reports `finished`. Pass it with `expected-version`, or leave both empty |
 | `expected-version` | empty | text `health-url` must serve, e.g. `${{ github.sha }}` |
 | `timeout-minutes` | `10` | job timeout. All three phases share it, less one minute, so a slow deploy fails with an `::error::` naming the phase instead of being killed |
+| `oidc-audience` | empty | `aud` of the GitHub OIDC token. Pass the audience the identity binds; the Infisical action's default is not ours |
+| `environment` | empty | GitHub environment the deploy job runs in. See below |
+| `deployment` | `true` | with `environment`, whether GitHub records a Deployment for the job. `false` for a caller that writes its own records |
 | `token-secret-name` | `COOLIFY_API_TOKEN` | the token now also authorizes the status polls, so it is required. It needs deploy and read scope |
 
 ```yaml
 jobs:
   deploy:
     permissions: { contents: read, id-token: write }
-    uses: PracticalWorks/.github/.github/workflows/coolify-deploy.yml@v1.1.0
+    uses: PracticalWorks/.github/.github/workflows/coolify-deploy.yml@v1.2.0
     with:
       infisical-identity-id: <identity id>
       infisical-project-slug: <project slug>
+      oidc-audience: https://github.com/<org>
+      environment: app-prod
+      webhook-secret-name: COOLIFY_APP_WEBHOOK_URL
       health-url: https://app.example.com/health
       expected-version: ${{ github.sha }}
 ```
+
+### Environment
+
+An Infisical OIDC identity trusts a subject such as `repo:<org>/<repo>:environment:app-prod`. The token carries `environment:<name>` only when the job that requests it runs in that environment, and a caller job that `uses:` a workflow cannot set `environment:`. So the deploy job sets `environment.name: ${{ inputs.environment }}` itself; GitHub still builds `sub` from the caller repository. The environment's protection rules and secrets apply to the deploy job, and an environment that does not exist yet is created on the caller's first run. Leave it empty for an identity that trusts a branch or ref instead.
+
+A job in an environment also gets a GitHub Deployment record for the caller's commit. A caller that writes its own Deployment records in that environment passes `deployment: false`, so the job's record is not read as one of them. Custom deployment protection rules cannot be combined with `deployment: false`.
 
 The webhook URL and the token are masked with `::add-mask::` before anything runs, and error messages name only the request path and status, never a response body.
 
