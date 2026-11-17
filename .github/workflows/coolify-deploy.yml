@@ -1,0 +1,128 @@
+name: coolify-deploy
+
+# The job runs in the caller, on the caller's minutes. Secrets are read from
+# Infisical with this workflow's GitHub OIDC token. Callers pass the identity
+# id and project slug; they do not pass repository secrets.
+#
+# The job goes green only once Coolify reports the deployment finished, and,
+# when health-url is set, once that URL serves expected-version (FACT-1910).
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: JSON array of runs-on labels.
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
+      infisical-domain:
+        required: false
+        type: string
+        default: https://secrets.practical.works
+      infisical-identity-id:
+        description: Infisical machine identity id allowed to assume via GitHub OIDC.
+        required: true
+        type: string
+      infisical-project-slug:
+        required: true
+        type: string
+      infisical-env-slug:
+        required: false
+        type: string
+        default: prod
+      infisical-secret-path:
+        required: false
+        type: string
+        default: /
+      oidc-audience:
+        required: false
+        type: string
+        default: ""
+      webhook-secret-name:
+        description: Shell-safe name of the secret that holds the Coolify webhook URL.
+        required: false
+        type: string
+        default: COOLIFY_WEBHOOK_URL
+      token-secret-name:
+        description: >-
+          Shell-safe name of the Coolify API token secret. It authorizes the
+          webhook and the deployment status polls, so it is required.
+        required: false
+        type: string
+        default: COOLIFY_API_TOKEN
+      timeout-minutes:
+        description: >-
+          Job timeout. The deploy, the wait for Coolify's outcome, and the
+          health-url wait share it, less one minute so the job fails by name.
+        required: false
+        type: number
+        default: 10
+      health-url:
+        description: >-
+          Optional URL polled after Coolify reports finished, until its body
+          contains expected-version. Pass both or neither.
+        required: false
+        type: string
+        default: ""
+      expected-version:
+        description: Optional text (e.g. the git sha) health-url must serve.
+        required: false
+        type: string
+        default: ""
+    outputs:
+      deployment-uuid:
+        description: Coolify deployment uuid from the webhook response.
+        value: ${{ jobs.deploy.outputs.deployment-uuid }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    outputs:
+      deployment-uuid: ${{ steps.webhook.outputs.deployment-uuid }}
+    steps:
+      - uses: Infisical/secrets-action@v1.0.18
+        with:
+          method: oidc
+          identity-id: ${{ inputs.infisical-identity-id }}
+          oidc-audience: ${{ inputs.oidc-audience }}
+          project-slug: ${{ inputs.infisical-project-slug }}
+          env-slug: ${{ inputs.infisical-env-slug }}
+          domain: ${{ inputs.infisical-domain }}
+          secret-path: ${{ inputs.infisical-secret-path }}
+          export-type: env
+
+      # The deploy script comes from the same commit as this workflow file.
+      # The fallback is only for a runner that leaves job.workflow_sha empty;
+      # bump it with each release tag.
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository || 'PracticalWorks/.github' }}
+          ref: ${{ job.workflow_sha || 'v1.1.0' }}
+          path: .pw-shared
+
+      # Self-hosted runners (Proxmox ephemeral) ship without node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - id: webhook
+        name: Deploy on Coolify and prove it is live
+        env:
+          WEBHOOK_SECRET_NAME: ${{ inputs.webhook-secret-name }}
+          TOKEN_SECRET_NAME: ${{ inputs.token-secret-name }}
+          HEALTH_URL: ${{ inputs.health-url }}
+          EXPECTED_VERSION: ${{ inputs.expected-version }}
+          TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+        run: |
+          set -euo pipefail
+          # Mask both values before anything can print them. printenv does
+          # not echo; the ::add-mask:: line itself is not shown in the log.
+          for name in "${WEBHOOK_SECRET_NAME:-COOLIFY_WEBHOOK_URL}" "${TOKEN_SECRET_NAME:-COOLIFY_API_TOKEN}"; do
+            value="$(printenv "${name}" || true)"
+            if [ -n "${value}" ]; then echo "::add-mask::${value}"; fi
+          done
+          node .pw-shared/scripts/coolify-deploy.mjs

@@ -1,0 +1,60 @@
+name: setup
+description: >-
+  pnpm, Node, and a frozen install. On macOS the Node architecture is arm64,
+  so an Apple Silicon runner does not install an x64 binary under Rosetta.
+
+inputs:
+  pnpm-version:
+    description: pnpm version. Match the calling repo's lockfile.
+    required: false
+    default: "10.14.0"
+  node-version:
+    description: Node version passed to actions/setup-node.
+    required: false
+    default: "22"
+  node-architecture:
+    description: >-
+      Node architecture. Empty selects arm64 on macOS and the runner default
+      everywhere else.
+    required: false
+    default: ""
+  registry-url:
+    description: Passed to actions/setup-node. Empty writes no registry auth.
+    required: false
+    default: ""
+  github-packages:
+    description: >-
+      When true, point pnpm at GitHub Packages with the job token. The caller
+      job needs packages:read.
+    required: false
+    default: "false"
+  install:
+    description: Run pnpm install --frozen-lockfile after setup.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        architecture: ${{ inputs.node-architecture != '' && inputs.node-architecture || (runner.os == 'macOS' && 'arm64' || '') }}
+        cache: pnpm
+        registry-url: ${{ inputs.registry-url }}
+
+    - if: inputs.github-packages == 'true'
+      name: Authenticate to GitHub Packages
+      shell: bash
+      env:
+        NODE_AUTH_TOKEN: ${{ github.token }}
+      run: pnpm config set "//npm.pkg.github.com/:_authToken" "$NODE_AUTH_TOKEN"
+
+    - if: inputs.install == 'true'
+      name: Install
+      shell: bash
+      run: pnpm install --frozen-lockfile

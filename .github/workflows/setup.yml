@@ -1,0 +1,69 @@
+name: setup
+
+# Install job. A later job cannot see this workspace, so test and image call
+# the setup action in their own job instead of depending on this one.
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: JSON array of runs-on labels, for example ["ubuntu-latest"].
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
+      pnpm-version:
+        required: false
+        type: string
+        default: "10.14.0"
+      node-version:
+        required: false
+        type: string
+        default: "22"
+      node-architecture:
+        required: false
+        type: string
+        default: ""
+      registry-url:
+        required: false
+        type: string
+        default: ""
+      github-packages:
+        required: false
+        type: boolean
+        default: false
+      install:
+        required: false
+        type: boolean
+        default: true
+      run:
+        description: Shell to run after install. Empty skips it.
+        required: false
+        type: string
+        default: ""
+      timeout-minutes:
+        required: false
+        type: number
+        default: 15
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ${{ fromJSON(inputs.runner) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PracticalWorks/.github/.github/actions/setup@v1
+        with:
+          pnpm-version: ${{ inputs.pnpm-version }}
+          node-version: ${{ inputs.node-version }}
+          node-architecture: ${{ inputs.node-architecture }}
+          registry-url: ${{ inputs.registry-url }}
+          github-packages: ${{ inputs.github-packages && 'true' || 'false' }}
+          install: ${{ inputs.install && 'true' || 'false' }}
+      - if: inputs.run != ''
+        name: run
+        run: ${{ inputs.run }}
