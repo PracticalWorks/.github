@@ -17,7 +17,7 @@ on: [push, pull_request]
 
 jobs:
   test:
-    uses: PracticalWorks/.github/.github/workflows/test.yml@v1.3.0
+    uses: PracticalWorks/.github/.github/workflows/test.yml@v1.4.0
 ```
 
 That checks out the repository, installs pnpm and Node 22, runs `pnpm install --frozen-lockfile`, then `pnpm lint` and `pnpm test`. Override any of them with `with:` (for example `test: pnpm vitest run`, or `runner: '["self-hosted"]'`). The sections below cover the other workflows and their inputs.
@@ -32,6 +32,7 @@ Always pin a tag, never `@main`. The tags so far:
 | `v1.1.0` | the merge of the v1.1.0 pull request | `pr-guard.yml` sets up Node and runs its own commit's script; failures are also `::error::` annotations; `coolify-deploy.yml` waits for Coolify's real outcome and can prove a version is live |
 | `v1.2.0` | the merge of the v1.2.0 pull request | `coolify-deploy.yml` takes `environment` (and `deployment`), so an Infisical identity can trust one GitHub environment of the caller; the setup action takes `cache` |
 | `v1.3.0` | the merge of the v1.3.0 pull request | `coolify-deploy.yml` takes `wait` (false: post the webhook and exit, so the caller is billed seconds, not the wait) and `pre-deploy-run` (a shell step in the caller's checkout before the webhook, e.g. an env sync, instead of a separate job) |
+| `v1.4.0` | the merge of the v1.4.0 pull request | `image.yml` takes `build-args`, so a Dockerfile can receive the commit sha it was built from |
 
 A release is a new tag on a commit of `main`. Existing tags are never moved or deleted, so a caller sees a change only when it bumps its pin. Do not pin `@main`.
 
@@ -46,6 +47,21 @@ A release is a new tag on a commit of `main`. Existing tags are never moved or d
 | `image.yml` | build a GHCR image and push `:latest` and `:<sha>` |
 | `coolify-deploy.yml` | read secrets from Infisical with GitHub OIDC, POST a Coolify webhook, then wait until the deploy is proven live |
 | `pr-guard.yml` | require a `## Verification` heading and a `Refs:` line; optional secret-shape scan |
+
+`image.yml` passes `build-args` (one `KEY=value` per line) to the build. A Dockerfile that declares `ARG BUILD_SHA` and `ENV BUILD_SHA=$BUILD_SHA` then knows its own commit at runtime, for example to serve it on a version endpoint:
+
+```yaml
+jobs:
+  build:
+    permissions: { contents: read, packages: write }
+    uses: PracticalWorks/.github/.github/workflows/image.yml@v1.4.0
+    with:
+      image: ghcr.io/<org>/<app>
+      build-args: |
+        BUILD_SHA=${{ github.sha }}
+```
+
+Build-args are recorded in the image history, so pass a credential with `npmrc` (a build secret), never as a build-arg.
 
 `test.yml` and `setup.yml` call `.github/actions/setup` themselves; `image.yml` installs nothing outside the Dockerfile. A following job cannot see the install from `setup.yml`.
 
